@@ -6,15 +6,17 @@ import { validateCreateAnswerData } from "../middlewares/answer.validation.mjs";
 const questionRouter = Router();
 
 questionRouter.post("/", [validateCreateQuestionData], async (req,res) => {
-    const newQuestion = {...req.body};
+    const { title, description, category } = req.body;
     try {
         await connectionPool.query(`
-            insert into questions (title, description, category)
-            values ($1, $2, $3)`,
+            insert into questions (title, description, category, created_at, updated_at)
+            values ($1, $2, $3, $4, $5)`,
         [
-            newQuestion.title,
-            newQuestion.description,
-            newQuestion.category
+            title,
+            description,
+            category,
+            new Date(),
+            new Date()
         ]);
     } catch (error) {
         console.error("Database error:", error);
@@ -81,7 +83,7 @@ questionRouter.get("/:questionId", async (req,res) => {
 
 questionRouter.put("/:questionId", [validateCreateQuestionData], async (req,res) => {
     const questionIdFromClient = req.params.questionId;
-    const newQuestion = {...req.body};
+    const { title, description } = req.body;
     try {
         const result = await connectionPool.query("select * from questions where id = $1",[questionIdFromClient]);
         if (!result.rows[0]) {
@@ -94,10 +96,12 @@ questionRouter.put("/:questionId", [validateCreateQuestionData], async (req,res)
             update questions
             set title = $1,
                 description = $2,
-            where id = $3`,
+                updated_at = $3
+            where id = $4`,
         [
-            newQuestion.title,
-            newQuestion.description,
+            title,
+            description,
+            new Date(),
             questionIdFromClient
         ]);
     } catch (error) {
@@ -136,7 +140,7 @@ questionRouter.delete("/:questionId", async (req,res) => {
 });
 
 questionRouter.post("/:questionId/answers", [validateCreateAnswerData], async (req,res) => {
-    const newAnswer = {...req.body};
+    const { content } = req.body;
     const questionIdFromClient = req.params.questionId;
     try {
         const question = await connectionPool.query("select 1 from questions where id = $1",[questionIdFromClient]);
@@ -147,7 +151,7 @@ questionRouter.post("/:questionId/answers", [validateCreateAnswerData], async (r
         }
 
         await connectionPool.query(`insert into answers (content, question_id) values ($1, $2)`,
-            [newAnswer.content, questionIdFromClient]);
+            [content, questionIdFromClient]);
     } catch (error) {
         return res.status(500).json({
             message: "Unable to create answers",
